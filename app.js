@@ -1,17 +1,18 @@
 import { db, rtdb } from "./firebase-config.js";
-import { doc, setDoc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.21.0/firebase-firestore.js";
+import { doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.21.0/firebase-firestore.js";
 import { ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/9.21.0/firebase-database.js";
 
+// DOM Elements
 const hostCodeDisplay = document.getElementById("host-code-display");
 const startShareBtn = document.getElementById("start-share");
 const stopShareBtn = document.getElementById("stop-share");
 const clientCodeInput = document.getElementById("client-code");
 const connectBtn = document.getElementById("connect");
 const remoteScreen = document.getElementById("remote-screen");
-
 const permissionDialog = document.getElementById("permission-dialog");
 const acceptRequestBtn = document.getElementById("accept-request");
 const rejectRequestBtn = document.getElementById("reject-request");
+const enableControlCheckbox = document.getElementById("enable-control");
 
 let hostCode;
 let mediaStream;
@@ -51,11 +52,14 @@ async function initializeHostCode() {
       showPermissionDialog(snapshot.val());
     }
   });
+
+  // Start listening for remote control events
+  listenForRemoteControl();
 }
 
 // Show the permission dialog
 function showPermissionDialog(clientCode) {
-  permissionDialog.style.display = "flex"; // Show the modal
+  permissionDialog.style.display = "block"; // Show the modal
 
   acceptRequestBtn.onclick = async () => {
     permissionDialog.style.display = "none";
@@ -135,6 +139,7 @@ connectBtn.addEventListener("click", async () => {
       if (status === "accepted") {
         console.log("Sharing request accepted.");
         startReceivingStream(clientCode);
+        captureClientEvents();
       } else if (status === "rejected") {
         console.log("Sharing request rejected.");
         alert("Your sharing request was rejected.");
@@ -155,6 +160,67 @@ function startReceivingStream(clientCode) {
       remoteScreen.appendChild(img);
     }
   });
+}
+
+// Enable/disable remote control
+enableControlCheckbox.addEventListener("change", async () => {
+  const allowControl = enableControlCheckbox.checked;
+  console.log(`Remote control ${allowControl ? "enabled" : "disabled"}`);
+  await set(ref(rtdb, `sessions/${hostCode}/allowControl`), allowControl);
+});
+
+// Listen for remote control events from the client
+function listenForRemoteControl() {
+  const controlRef = ref(rtdb, `sessions/${hostCode}/controlEvents`);
+  onValue(controlRef, (snapshot) => {
+    if (snapshot.exists() && enableControlCheckbox.checked) {
+      const event = snapshot.val();
+      simulateEvent(event); // Simulate the received event on the host's PC
+    }
+  });
+}
+
+// Simulate received input events on the host's PC
+function simulateEvent(event) {
+  if (event.type === "mousemove") {
+    console.log(`Simulating mousemove to (${event.x}, ${event.y})`);
+  } else if (event.type === "click") {
+    console.log(`Simulating click at (${event.x}, ${event.y})`);
+  } else if (event.type === "keypress") {
+    console.log(`Simulating keypress: ${event.key}`);
+  }
+}
+
+// Capture client-side events and send them to Firebase
+function captureClientEvents() {
+  document.addEventListener("mousemove", (event) => {
+    sendControlEvent({
+      type: "mousemove",
+      x: event.clientX,
+      y: event.clientY,
+    });
+  });
+
+  document.addEventListener("click", (event) => {
+    sendControlEvent({
+      type: "click",
+      x: event.clientX,
+      y: event.clientY,
+    });
+  });
+
+  document.addEventListener("keypress", (event) => {
+    sendControlEvent({
+      type: "keypress",
+      key: event.key,
+    });
+  });
+}
+
+// Send captured events to Firebase
+function sendControlEvent(event) {
+  const controlRef = ref(rtdb, `sessions/${clientCode}/controlEvents`);
+  set(controlRef, event);
 }
 
 // Initialize the app
