@@ -57,14 +57,14 @@ async function initializeHostCode() {
 }
 
 // Show the permission dialog
-function showPermissionDialog(clientCodeForPermission) {
+function showPermissionDialog(clientCode) {
   const myModal = new bootstrap.Modal(document.getElementById('exampleModal'));
       myModal.show();
   document.getElementById("accept-request").onclick = async () => {
     myModal.hide(); // Hide the modal when accepted
     set(ref(rtdb, `sessions/${hostCode}/status`), "accepted");
     console.log("Request accepted. Starting screen sharing...");
-    clientCodeForControl = clientCodeForPermission;
+    // clientCodeForControl = clientCodeForPermission;
     startScreenSharing(); // Automatically start screen sharing
   };
 
@@ -140,6 +140,7 @@ connectBtn.addEventListener("click", async () => {
       const status = snapshot.val();
       if (status === "accepted") {
         console.log("Sharing request accepted.");
+        clientCodeForControl = clientCode;
         startReceivingStream(clientCode);
         captureClientEvents();
       } else if (status === "rejected") {
