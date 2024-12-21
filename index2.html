@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
+  <title>Screen Sharing App</title>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🌐 Screen Sharing App</h1>
+    </header>
+
+    <!-- Host Section -->
+    <section id="host-section" class="card">
+      <h2>Your Device Code</h2>
+      <p id="host-code-display" class="device-code">Generating...</p>
+      <div class="buttons">
+        <button id="start-share" class="btn primary">Start Screen Sharing</button>
+        <button id="stop-share" class="btn danger" style="display: none;">Stop Sharing</button>
+      </div>
+    </section>
+
+    <!-- Client Section -->
+    <section id="client-section" class="card">
+      <h2>Connect to a Device</h2>
+      <input type="text" id="client-code" class="input" placeholder="Enter Device Code">
+      <button id="connect" class="btn primary">Connect</button>
+      <div id="remote-screen" class="remote-screen"></div>
+    </section>
+
+    <!-- Permission Dialog -->
+    <div id="permission-dialog" class="modal">
+      <div class="modal-content">
+        <h3>📞 Incoming Sharing Request</h3>
+        <p>Do you want to allow screen sharing?</p>
+        <div class="modal-buttons">
+          <button id="accept-request" class="btn primary">Accept</button>
+          <button id="reject-request" class="btn danger">Reject</button>
+        </div>
+      </div>
+      <div class="control-toggle">
+        <label>
+          <input type="checkbox" id="enable-control" />
+          Allow Remote Control
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./firebase-config.js"></script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

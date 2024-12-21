@@ -1,55 +1,98 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="style.css">
-  <title>Screen Sharing App</title>
-</head>
-<body>
-  <div class="container">
-    <header>
-      <h1>🌐 Screen Sharing App</h1>
-    </header>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta http-equiv="x-ua-compatible" content="ie=edge" />
+    <title>Dzone Screen Sharing</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  </head>
+  <body>
+    <nav class="navbar navbar-light bg-body-tertiary">
+      <div class="container-fluid">
+        <a class="navbar-brand">Dzone Screen Sharing</a>
 
-    <!-- Host Section -->
-    <section id="host-section" class="card">
-      <h2>Your Device Code</h2>
-      <p id="host-code-display" class="device-code">Generating...</p>
-      <div class="buttons">
-        <button id="start-share" class="btn primary">Start Screen Sharing</button>
-        <button id="stop-share" class="btn danger" style="display: none;">Stop Sharing</button>
+        <a class="navbar-brand" id="host-code-display">Your Code:- &nbsp;&nbsp;&nbsp;</a>
+
+        <form class="d-flex input-group w-auto" action="#" onsubmit="javascript:void()">
+          <input
+            type="search"
+            id="client-code"
+            class="form-control rounded"
+            placeholder="Enter Client Code"
+            aria-label="Search"
+            aria-describedby="search-addon"
+          />
+          <span class="input-group-text border-0" id="search-addon">
+            <button type="button" id="connect" class="btn btn-success" data-mdb-ripple-init>Connect</button>
+            <button style="display: none;" type="button" id="start-share" class="btn btn-info" data-mdb-ripple-init>Screen Sharing</button>
+            <button style="display: none;" type="button" id="stop-share" class="btn btn-danger" data-mdb-ripple-init>Stop</button>
+          </span>
+        </form>
       </div>
-    </section>
+    </nav>
 
-    <!-- Client Section -->
-    <section id="client-section" class="card">
-      <h2>Connect to a Device</h2>
-      <input type="text" id="client-code" class="input" placeholder="Enter Device Code">
-      <button id="connect" class="btn primary">Connect</button>
-      <div id="remote-screen" class="remote-screen"></div>
-    </section>
 
-    <!-- Permission Dialog -->
-    <div id="permission-dialog" class="modal">
-      <div class="modal-content">
-        <h3>📞 Incoming Sharing Request</h3>
-        <p>Do you want to allow screen sharing?</p>
-        <div class="modal-buttons">
-          <button id="accept-request" class="btn primary">Accept</button>
-          <button id="reject-request" class="btn danger">Reject</button>
+    <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h1 class="modal-title fs-5" id="exampleModalLabel">📞 Incoming Sharing Request</h1>
+          </div>
+          <div class="modal-body">
+            <p>Do you want to allow screen sharing?</p>
+            <div class="control-toggle">
+              <label>
+                <input type="checkbox" id="enable-control" />
+                Allow Remote Control
+              </label>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" id="reject-request" class="btn btn-outline-danger" data-bs-dismiss="modal">Reject</button>
+            <button type="button"  id="accept-request" class="btn btn-success" data-bs-dismiss="modal">Accept</button>
+          </div>
         </div>
       </div>
-      <div class="control-toggle">
-        <label>
-          <input type="checkbox" id="enable-control" />
-          Allow Remote Control
-        </label>
+    </div>
+
+ 
+
+    <div class="modal fade" id="exampleModal1" tabindex="-1" aria-labelledby="exampleModalLabel1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h1 class="modal-title fs-5" id="exampleModalLabel1">Sharing Request Reject</h1>
+          </div>
+          <div class="modal-body">
+            <p>Your sharing request was rejected.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-danger" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
       </div>
     </div>
-  </div>
 
-  <script type="module" src="./firebase-config.js"></script>
-  <script type="module" src="./app.js"></script>
-</body>
+    <div class="modal fade" id="exampleModal11" tabindex="-1" aria-labelledby="exampleModalLabel11" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h1 class="modal-title fs-5" id="exampleModalLabel11">Screen Sharing Finisted</h1>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-danger" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="container my-2" style="border: 2px solid black;" id="remote-screen" ></div>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+    <script type="module" src="./firebase-config.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
 </html>

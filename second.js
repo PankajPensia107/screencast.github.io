@@ -24,7 +24,7 @@ async function generateUniqueCode() {
   let isUnique = false;
 
   while (!isUnique) {
-    code = Math.random().toString(36).substr(2, 6); // Generate random code
+    code = Math.floor(Math.random() * 100000000+1000).toString().padStart(6, '0'); // Generate a 6-digit number
     const docRef = doc(db, "sessions", code);
     const docSnap = await getDoc(docRef);
 
@@ -35,6 +35,7 @@ async function generateUniqueCode() {
 
   return code;
 }
+
 
 // Initialize the host's device code
 async function initializeHostCode() {
@@ -59,7 +60,7 @@ async function initializeHostCode() {
 
 // Show the permission dialog
 function showPermissionDialog(clientCode) {
-  permissionDialog.style.display = "flex"; // Show the modal
+  permissionDialog.style.display = "block"; // Show the modal
 
   acceptRequestBtn.onclick = async () => {
     permissionDialog.style.display = "none";

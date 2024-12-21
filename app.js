@@ -10,21 +10,20 @@ const clientCodeInput = document.getElementById("client-code");
 const connectBtn = document.getElementById("connect");
 const remoteScreen = document.getElementById("remote-screen");
 const permissionDialog = document.getElementById("permission-dialog");
-const acceptRequestBtn = document.getElementById("accept-request");
-const rejectRequestBtn = document.getElementById("reject-request");
 const enableControlCheckbox = document.getElementById("enable-control");
 
 let hostCode;
 let mediaStream;
 let sharingRequestRef;
+var clientCodeForControl;
 
-// Function to generate a unique device code
+// Function to generate a unique device code with numbers only
 async function generateUniqueCode() {
   let code;
   let isUnique = false;
 
   while (!isUnique) {
-    code = Math.random().toString(36).substr(2, 6); // Generate random code
+    code = Math.floor(Math.random() * 1000000).toString().padStart(6, '0'); // Generate a 6-digit number
     const docRef = doc(db, "sessions", code);
     const docSnap = await getDoc(docRef);
 
@@ -39,7 +38,7 @@ async function generateUniqueCode() {
 // Initialize the host's device code
 async function initializeHostCode() {
   hostCode = await generateUniqueCode();
-  hostCodeDisplay.innerText = hostCode; // Display the generated code
+  hostCodeDisplay.innerText += hostCode; // Display the generated code
 
   // Save the host code in Firestore with an "available" status
   const hostDoc = doc(db, "sessions", hostCode);
@@ -59,17 +58,18 @@ async function initializeHostCode() {
 
 // Show the permission dialog
 function showPermissionDialog(clientCode) {
-  permissionDialog.style.display = "block"; // Show the modal
-
-  acceptRequestBtn.onclick = async () => {
-    permissionDialog.style.display = "none";
+  const myModal = new bootstrap.Modal(document.getElementById('exampleModal'));
+      myModal.show();
+  document.getElementById("accept-request").onclick = async () => {
+    myModal.hide(); // Hide the modal when accepted
     set(ref(rtdb, `sessions/${hostCode}/status`), "accepted");
     console.log("Request accepted. Starting screen sharing...");
+    clientCodeForControl = clientCode;
     startScreenSharing(); // Automatically start screen sharing
   };
 
-  rejectRequestBtn.onclick = async () => {
-    permissionDialog.style.display = "none";
+  document.getElementById("reject-request").onclick = async () => {
+    myModal.hide(); // Hide the modal when rejected
     set(ref(rtdb, `sessions/${hostCode}/status`), "rejected");
     console.log("Request rejected.");
   };
@@ -103,8 +103,9 @@ startShareBtn.addEventListener("click", async () => {
 
     setInterval(sendFrame, 100);
     console.log("Screen sharing started successfully.");
-    stopShareBtn.style.display = "inline-block"; // Show Stop Sharing button
+    stopShareBtn.style.display = "block"; // Show Stop Sharing button
     startShareBtn.style.display = "none"; // Hide Start Sharing button
+    connectBtn.style.display = "none";
   } catch (error) {
     console.error("Error starting screen sharing:", error);
   }
@@ -116,7 +117,8 @@ stopShareBtn.addEventListener("click", async () => {
   await remove(ref(rtdb, `sessions/${hostCode}/stream`));
   console.log("Screen sharing stopped.");
   stopShareBtn.style.display = "none"; // Hide Stop Sharing button
-  startShareBtn.style.display = "inline-block"; // Show Start Sharing button
+  startShareBtn.style.display = "none"; // Show Start Sharing button
+  connectBtn.style.display = "block";
 });
 
 // Client connects using the entered device code
@@ -142,7 +144,8 @@ connectBtn.addEventListener("click", async () => {
         captureClientEvents();
       } else if (status === "rejected") {
         console.log("Sharing request rejected.");
-        alert("Your sharing request was rejected.");
+        const myModal = new bootstrap.Modal(document.getElementById('exampleModal1'));
+        myModal.show();
       }
     }
   });
@@ -219,7 +222,8 @@ function captureClientEvents() {
 
 // Send captured events to Firebase
 function sendControlEvent(event) {
-  const controlRef = ref(rtdb, `sessions/${clientCode}/controlEvents`);
+  console.log("client Code:- "+clientCodeForControl);
+  const controlRef = ref(rtdb, 'sessions/'+clientCodeForControl+'/controlEvents');
   set(controlRef, event);
 }
 
