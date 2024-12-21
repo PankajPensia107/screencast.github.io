@@ -57,14 +57,14 @@ async function initializeHostCode() {
 }
 
 // Show the permission dialog
-function showPermissionDialog(clientCode) {
+function showPermissionDialog(clientCodeForPermission) {
   const myModal = new bootstrap.Modal(document.getElementById('exampleModal'));
       myModal.show();
   document.getElementById("accept-request").onclick = async () => {
     myModal.hide(); // Hide the modal when accepted
     set(ref(rtdb, `sessions/${hostCode}/status`), "accepted");
     console.log("Request accepted. Starting screen sharing...");
-    clientCodeForControl = clientCode;
+    clientCodeForControl = clientCodeForPermission;
     startScreenSharing(); // Automatically start screen sharing
   };
 
