@@ -9,13 +9,22 @@ const stopShareBtn = document.getElementById("stop-share");
 const clientCodeInput = document.getElementById("client-code");
 const connectBtn = document.getElementById("connect");
 const remoteScreen = document.getElementById("remote-screen");
-const permissionDialog = document.getElementById("permission-dialog");
-const enableControlCheckbox = document.getElementById("enable-control");
+const permissionDialog = new bootstrap.Modal(document.getElementById("permission-modal"));
+const rejectedDialog = new bootstrap.Modal(document.getElementById("rejected-modal"));
+const stoppedDialog = new bootstrap.Modal(document.getElementById("stopped-modal"));
+
+// Permission Checkboxes
+const allowScreenShare = document.getElementById("allow-screen-share");
+const allowMouseControl = document.getElementById("allow-mouse-control");
+const allowKeyboardControl = document.getElementById("allow-keyboard-control");
+const allowFileTransfer = document.getElementById("allow-file-transfer");
+const allowAllAccess = document.getElementById("allow-all-access");
 
 let hostCode;
 let mediaStream;
 let sharingRequestRef;
-var clientCodeForControl;
+let clientCodeForControl;
+let sharingStartTime;
 
 // Function to generate a unique device code with numbers only
 async function generateUniqueCode() {
@@ -58,18 +67,32 @@ async function initializeHostCode() {
 
 // Show the permission dialog
 function showPermissionDialog(clientCode) {
-  const myModal = new bootstrap.Modal(document.getElementById('exampleModal'));
-      myModal.show();
+  permissionDialog.show();
+
   document.getElementById("accept-request").onclick = async () => {
-    myModal.hide(); // Hide the modal when accepted
-    set(ref(rtdb, `sessions/${hostCode}/status`), "accepted");
-    console.log("Request accepted. Starting screen sharing...");
-    // clientCodeForControl = clientCodeForPermission;
+    const permissions = {
+      screenShare: allowScreenShare.checked,
+      mouseControl: allowMouseControl.checked,
+      keyboardControl: allowKeyboardControl.checked,
+      fileTransfer: allowFileTransfer.checked,
+      allAccess: allowAllAccess.checked
+    };
+
+    if (permissions.allAccess) {
+      permissions.screenShare = true;
+      permissions.mouseControl = true;
+      permissions.keyboardControl = true;
+      permissions.fileTransfer = true;
+    }
+
+    permissionDialog.hide(); // Hide the modal when accepted
+    set(ref(rtdb, `sessions/${hostCode}/status`), { status: "accepted", permissions });
+    console.log("Request accepted with permissions:", permissions);
     startScreenSharing(); // Automatically start screen sharing
   };
 
   document.getElementById("reject-request").onclick = async () => {
-    myModal.hide(); // Hide the modal when rejected
+    permissionDialog.hide(); // Hide the modal when rejected
     set(ref(rtdb, `sessions/${hostCode}/status`), "rejected");
     console.log("Request rejected.");
   };
@@ -77,6 +100,7 @@ function showPermissionDialog(clientCode) {
 
 // Start screen sharing directly after acceptance
 function startScreenSharing() {
+  sharingStartTime = Date.now();
   startShareBtn.click(); // Trigger the click event of the Start Sharing button
 }
 
@@ -115,6 +139,11 @@ startShareBtn.addEventListener("click", async () => {
 stopShareBtn.addEventListener("click", async () => {
   mediaStream.getTracks().forEach((track) => track.stop());
   await remove(ref(rtdb, `sessions/${hostCode}/stream`));
+
+  const sharingEndTime = Date.now();
+  const sharingDuration = ((sharingEndTime - sharingStartTime) / 1000).toFixed(2); // in seconds
+  alert(`Screen sharing stopped. Duration: ${sharingDuration} seconds.`);
+
   console.log("Screen sharing stopped.");
   stopShareBtn.style.display = "none"; // Hide Stop Sharing button
   startShareBtn.style.display = "none"; // Show Start Sharing button
@@ -137,16 +166,15 @@ connectBtn.addEventListener("click", async () => {
   const statusRef = ref(rtdb, `sessions/${clientCode}/status`);
   onValue(statusRef, (snapshot) => {
     if (snapshot.exists()) {
-      const status = snapshot.val();
-      if (status === "accepted") {
+      const statusData = snapshot.val();
+      if (statusData.status === "accepted") {
         console.log("Sharing request accepted.");
         clientCodeForControl = clientCode;
         startReceivingStream(clientCode);
-        captureClientEvents();
-      } else if (status === "rejected") {
+        captureClientEvents(statusData.permissions);
+      } else if (statusData.status === "rejected") {
         console.log("Sharing request rejected.");
-        const myModal = new bootstrap.Modal(document.getElementById('exampleModal1'));
-        myModal.show();
+        rejectedDialog.show();
       }
     }
   });
@@ -166,18 +194,11 @@ function startReceivingStream(clientCode) {
   });
 }
 
-// Enable/disable remote control
-enableControlCheckbox.addEventListener("change", async () => {
-  const allowControl = enableControlCheckbox.checked;
-  console.log(`Remote control ${allowControl ? "enabled" : "disabled"}`);
-  await set(ref(rtdb, `sessions/${hostCode}/allowControl`), allowControl);
-});
-
 // Listen for remote control events from the client
 function listenForRemoteControl() {
   const controlRef = ref(rtdb, `sessions/${hostCode}/controlEvents`);
   onValue(controlRef, (snapshot) => {
-    if (snapshot.exists() && enableControlCheckbox.checked) {
+    if (snapshot.exists() && allowMouseControl.checked) {
       const event = snapshot.val();
       simulateEvent(event); // Simulate the received event on the host's PC
     }
@@ -196,35 +217,38 @@ function simulateEvent(event) {
 }
 
 // Capture client-side events and send them to Firebase
-function captureClientEvents() {
-  document.addEventListener("mousemove", (event) => {
-    sendControlEvent({
-      type: "mousemove",
-      x: event.clientX,
-      y: event.clientY,
+function captureClientEvents(permissions) {
+  if (permissions.mouseControl) {
+    document.addEventListener("mousemove", (event) => {
+      sendControlEvent({
+        type: "mousemove",
+        x: event.clientX,
+        y: event.clientY,
+      });
     });
-  });
 
-  document.addEventListener("click", (event) => {
-    sendControlEvent({
-      type: "click",
-      x: event.clientX,
-      y: event.clientY,
+    document.addEventListener("click", (event) => {
+      sendControlEvent({
+        type: "click",
+        x: event.clientX,
+        y: event.clientY,
+      });
     });
-  });
+  }
 
-  document.addEventListener("keypress", (event) => {
-    sendControlEvent({
-      type: "keypress",
-      key: event.key,
+  if (permissions.keyboardControl) {
+    document.addEventListener("keypress", (event) => {
+      sendControlEvent({
+        type: "keypress",
+        key: event.key,
+      });
     });
-  });
+  }
 }
 
 // Send captured events to Firebase
 function sendControlEvent(event) {
-  console.log("client Code:- "+clientCodeForControl);
-  const controlRef = ref(rtdb, 'sessions/'+clientCodeForControl+'/controlEvents');
+  const controlRef = ref(rtdb, `sessions/${clientCodeForControl}/controlEvents`);
   set(controlRef, event);
 }
 
