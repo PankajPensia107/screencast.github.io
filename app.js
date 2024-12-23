@@ -167,13 +167,20 @@ connectBtn.addEventListener("click", () => {
 });
 
 // Start receiving stream
+// Start receiving stream
 function startReceivingStream(clientCode, permissions) {
   if (!clientCode || !permissions) {
     console.error("Invalid clientCode or permissions:", clientCode, permissions);
     return;
   }
 
-  const call = peer.call(clientCode, null); // No media stream is passed here
+  // Ensure client is properly connected before making the call
+  if (!peer || !peer.connections[clientCode]) {
+    console.error("Client is not connected:", clientCode);
+    return;
+  }
+
+  const call = peer.call(clientCode, null); // No media stream is passed here, assuming data only
   if (!call) {
     console.error("Failed to create a call to client:", clientCode);
     return;
@@ -198,6 +205,7 @@ function startReceivingStream(clientCode, permissions) {
 
   captureClientEvents(permissions);
 }
+
 
 // Simulate input events
 function simulateEvent(event) {
