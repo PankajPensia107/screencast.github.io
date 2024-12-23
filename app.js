@@ -160,35 +160,37 @@ connectBtn.addEventListener("click", () => {
 
 // Start receiving stream
 function startReceivingStream(clientCode, permissions) {
-  // Create a call to the client
-  const call = peer.call(clientCode, null);
+  if (!clientCode || !permissions) {
+    console.error("Invalid clientCode or permissions:", clientCode, permissions);
+    return;
+  }
 
+  const call = peer.call(clientCode, null); // No media stream is passed here
   if (!call) {
-    console.error(`Failed to create a call to client: ${clientCode}`);
+    console.error("Failed to create a call to client:", clientCode);
     return;
   }
 
   call.on("stream", (remoteStream) => {
-    console.log("Receiving remote stream...");
+    console.log("Receiving remote stream from client:", clientCode);
     const video = document.createElement("video");
     video.srcObject = remoteStream;
     video.autoplay = true;
-    video.style.width = "100%";
-    remoteScreen.innerHTML = ""; // Clear any existing content
+    remoteScreen.innerHTML = ""; // Clear existing content
     remoteScreen.appendChild(video);
   });
 
   call.on("error", (err) => {
-    console.error("Error during call:", err);
+    console.error("Error during PeerJS call:", err);
   });
 
   call.on("close", () => {
     console.log("Call with client closed.");
   });
 
-  // Start capturing events from the client
   captureClientEvents(permissions);
 }
+
 
 
 // Simulate input events
