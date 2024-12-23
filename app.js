@@ -138,6 +138,53 @@ stopShareBtn.addEventListener("click", () => {
 });
 
 // Connect client
+// Start receiving stream
+function startReceivingStream(clientCode, permissions) {
+  if (!clientCode || !permissions) {
+    console.error("Invalid clientCode or permissions:", clientCode, permissions);
+    return;
+  }
+
+  // Ensure client is properly connected before making the call
+  if (!peer || !peer.connections[clientCode]) {
+    console.error("Client is not connected:", clientCode);
+    return;
+  }
+
+  console.log("Attempting to create call to client:", clientCode);
+
+  try {
+    // Assuming no media stream is required here, pass `null` for a data-only call
+    const call = peer.call(clientCode, null); // No media stream is passed
+    if (!call) {
+      console.error("Failed to create a call to client:", clientCode);
+      return;
+    }
+
+    call.on("stream", (remoteStream) => {
+      console.log("Receiving remote stream from client:", clientCode);
+      const video = document.createElement("video");
+      video.srcObject = remoteStream;
+      video.autoplay = true;
+      remoteScreen.innerHTML = ""; // Clear existing content
+      remoteScreen.appendChild(video);
+    });
+
+    call.on("error", (err) => {
+      console.error("Error during PeerJS call:", err);
+    });
+
+    call.on("close", () => {
+      console.log("Call with client closed.");
+    });
+
+    captureClientEvents(permissions);
+  } catch (err) {
+    console.error("Exception during call creation:", err);
+  }
+}
+
+// Modified connect button to ensure the peer is ready before calling
 connectBtn.addEventListener("click", () => {
   const clientCode = clientCodeInput.value.trim();
   if (!clientCode) {
@@ -145,11 +192,13 @@ connectBtn.addEventListener("click", () => {
     return;
   }
 
+  // Wait for the connection to be established before attempting the call
   const conn = peer.connect(clientCode);
   conn.on("open", () => {
     console.log("Connected to host with code:", clientCode);
-
     conn.send({ type: "permissionsRequest" });
+
+    // Listen for permissions response
     conn.on("data", (data) => {
       if (data.type === "permissionsGranted") {
         console.log("Permissions granted:", data.permissions);
@@ -165,47 +214,6 @@ connectBtn.addEventListener("click", () => {
     console.error("Connection error:", err);
   });
 });
-
-// Start receiving stream
-// Start receiving stream
-function startReceivingStream(clientCode, permissions) {
-  if (!clientCode || !permissions) {
-    console.error("Invalid clientCode or permissions:", clientCode, permissions);
-    return;
-  }
-
-  // Ensure client is properly connected before making the call
-  if (!peer || !peer.connections[clientCode]) {
-    console.error("Client is not connected:", clientCode);
-    return;
-  }
-
-  const call = peer.call(clientCode, null); // No media stream is passed here, assuming data only
-  if (!call) {
-    console.error("Failed to create a call to client:", clientCode);
-    return;
-  }
-
-  call.on("stream", (remoteStream) => {
-    console.log("Receiving remote stream from client:", clientCode);
-    const video = document.createElement("video");
-    video.srcObject = remoteStream;
-    video.autoplay = true;
-    remoteScreen.innerHTML = ""; // Clear existing content
-    remoteScreen.appendChild(video);
-  });
-
-  call.on("error", (err) => {
-    console.error("Error during PeerJS call:", err);
-  });
-
-  call.on("close", () => {
-    console.log("Call with client closed.");
-  });
-
-  captureClientEvents(permissions);
-}
-
 
 // Simulate input events
 function simulateEvent(event) {
