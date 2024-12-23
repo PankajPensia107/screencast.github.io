@@ -145,7 +145,7 @@ function startReceivingStream(clientCode, permissions) {
     return;
   }
 
-  // Ensure client is properly connected before making the call
+  // Check if the peer connection exists and is open
   if (!peer || !peer.connections[clientCode]) {
     console.error("Client is not connected:", clientCode);
     return;
@@ -154,8 +154,8 @@ function startReceivingStream(clientCode, permissions) {
   console.log("Attempting to create call to client:", clientCode);
 
   try {
-    // Assuming no media stream is required here, pass `null` for a data-only call
-    const call = peer.call(clientCode, null); // No media stream is passed
+    // Check if we should pass a media stream (even if null) or leave it undefined
+    const call = peer.call(clientCode, undefined); // No media stream is passed
     if (!call) {
       console.error("Failed to create a call to client:", clientCode);
       return;
@@ -213,8 +213,11 @@ connectBtn.addEventListener("click", () => {
   conn.on("error", (err) => {
     console.error("Connection error:", err);
   });
-});
 
+  conn.on("close", () => {
+    console.log("Connection with client closed.");
+  });
+});
 // Simulate input events
 function simulateEvent(event) {
   if (event.type === "mousemove") {
