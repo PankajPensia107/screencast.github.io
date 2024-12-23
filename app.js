@@ -2,7 +2,7 @@
 import { db, rtdb } from "./firebase-config.js";
 import { doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.21.0/firebase-firestore.js";
 import { ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/9.21.0/firebase-database.js";
-import Peer from "peerjs"; // Third-party library for robust real-time communication
+import {Peer} from "https://esm.sh/peerjs@1.5.4?bundle-deps"
 
 // DOM Elements
 const hostCodeDisplay = document.getElementById("host-code-display");
