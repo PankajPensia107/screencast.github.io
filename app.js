@@ -2,6 +2,7 @@
 import { db, rtdb } from "./firebase-config.js";
 import { doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.21.0/firebase-firestore.js";
 import { ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/9.21.0/firebase-database.js";
+import Peer from "peerjs"; // Third-party library for robust real-time communication
 
 // DOM Elements
 const hostCodeDisplay = document.getElementById("host-code-display");
@@ -22,10 +23,8 @@ const allowFileTransfer = document.getElementById("allow-file-transfer");
 const allowAllAccess = document.getElementById("allow-all-access");
 
 let hostCode;
-let mediaStream;
-let sharingRequestRef;
-let clientCodeForControl;
-let sharingStartTime;
+let peer;
+let connections = {};
 
 // Function to generate a unique device code
 async function generateUniqueCode() {
@@ -52,23 +51,37 @@ async function initializeHostCode() {
   const hostDoc = doc(db, "sessions", hostCode);
   await setDoc(hostDoc, { status: "available", hostCode });
 
-  // Listen for sharing requests
-  sharingRequestRef = ref(rtdb, `sessions/${hostCode}/request`);
-  onValue(sharingRequestRef, (snapshot) => {
-    if (snapshot.exists()) {
-      showPermissionDialog(snapshot.val());
-    }
+  // Initialize PeerJS
+  peer = new Peer(hostCode);
+
+  peer.on("connection", (conn) => {
+    connections[conn.peer] = conn;
+    conn.on("data", (data) => handleClientData(conn.peer, data));
   });
 
-  // Listen for remote control events
-  listenForRemoteControl();
+  peer.on("call", (call) => {
+    startScreenSharing().then((mediaStream) => {
+      call.answer(mediaStream);
+    });
+  });
+
+  console.log("PeerJS initialized with code:", hostCode);
+}
+
+// Handle client data
+function handleClientData(clientCode, data) {
+  if (data.type === "permissionsRequest") {
+    showPermissionDialog(clientCode, data);
+  } else if (data.type === "controlEvent") {
+    simulateEvent(data.event);
+  }
 }
 
 // Show the permission dialog
-function showPermissionDialog(clientCode) {
+function showPermissionDialog(clientCode, request) {
   permissionDialog.show();
 
-  document.getElementById("accept-request").onclick = async () => {
+  document.getElementById("accept-request").onclick = () => {
     const permissions = {
       screenShare: allowScreenShare.checked,
       mouseControl: allowMouseControl.checked,
@@ -83,19 +96,13 @@ function showPermissionDialog(clientCode) {
       permissions.fileTransfer = true;
     }
 
-    await set(ref(rtdb, `sessions/${hostCode}/status`), {
-      status: "accepted",
-      permissions
-    });
-
+    connections[clientCode].send({ type: "permissionsGranted", permissions });
     console.log("Request accepted with permissions:", permissions);
     permissionDialog.hide();
-
-    if (permissions.screenShare) startScreenSharing();
   };
 
-  document.getElementById("reject-request").onclick = async () => {
-    await set(ref(rtdb, `sessions/${hostCode}/status`), { status: "rejected" });
+  document.getElementById("reject-request").onclick = () => {
+    connections[clientCode].send({ type: "permissionsDenied" });
     console.log("Request rejected.");
     permissionDialog.hide();
   };
@@ -104,96 +111,65 @@ function showPermissionDialog(clientCode) {
 // Start screen sharing
 async function startScreenSharing() {
   try {
-    mediaStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-
-    const streamRef = ref(rtdb, `sessions/${hostCode}/stream`);
-
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("2d");
-    const video = document.createElement("video");
-    video.srcObject = mediaStream;
-    video.play();
-
-    const sendFrame = () => {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const frameData = canvas.toDataURL("image/webp");
-      set(streamRef, frameData);
-    };
-
-    setInterval(sendFrame, 100);
+    const mediaStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
     console.log("Screen sharing started.");
 
     stopShareBtn.style.display = "block";
     startShareBtn.style.display = "none";
+
+    return mediaStream;
   } catch (error) {
     console.error("Error starting screen sharing:", error);
   }
 }
 
 // Stop screen sharing
-stopShareBtn.addEventListener("click", async () => {
-  mediaStream.getTracks().forEach((track) => track.stop());
-  await remove(ref(rtdb, `sessions/${hostCode}/stream`));
-
+stopShareBtn.addEventListener("click", () => {
+  Object.values(connections).forEach((conn) => conn.close());
+  peer.disconnect();
   console.log("Screen sharing stopped.");
+
   stopShareBtn.style.display = "none";
   startShareBtn.style.display = "block";
 });
 
 // Connect client
-connectBtn.addEventListener("click", async () => {
+connectBtn.addEventListener("click", () => {
   const clientCode = clientCodeInput.value.trim();
   if (!clientCode) {
     alert("Please enter a valid device code.");
     return;
   }
 
-  console.log("Requesting to connect to host with code:", clientCode);
-  const requestRef = ref(rtdb, `sessions/${clientCode}/request`);
-  await set(requestRef, hostCode);
+  const conn = peer.connect(clientCode);
+  conn.on("open", () => {
+    console.log("Connected to host with code:", clientCode);
 
-  const statusRef = ref(rtdb, `sessions/${clientCode}/status`);
-  onValue(statusRef, (snapshot) => {
-    if (snapshot.exists()) {
-      const statusData = snapshot.val();
-      if (statusData.status === "accepted") {
-        console.log("Sharing request accepted.");
-        clientCodeForControl = clientCode;
-        startReceivingStream(clientCode);
-        captureClientEvents(statusData.permissions);
-      } else if (statusData.status === "rejected") {
-        console.log("Sharing request rejected.");
+    conn.send({ type: "permissionsRequest" });
+    conn.on("data", (data) => {
+      if (data.type === "permissionsGranted") {
+        console.log("Permissions granted:", data.permissions);
+        startReceivingStream(clientCode, data.permissions);
+      } else if (data.type === "permissionsDenied") {
+        console.log("Permissions denied.");
         rejectedDialog.show();
       }
-    }
+    });
   });
 });
 
 // Start receiving stream
-function startReceivingStream(clientCode) {
-  const streamRef = ref(rtdb, `sessions/${clientCode}/stream`);
-  onValue(streamRef, (snapshot) => {
-    if (snapshot.exists()) {
-      const frameData = snapshot.val();
-      const img = new Image();
-      img.src = frameData;
-      remoteScreen.innerHTML = "";
-      remoteScreen.appendChild(img);
-    }
+function startReceivingStream(clientCode, permissions) {
+  const call = peer.call(clientCode, null);
+  call.on("stream", (remoteStream) => {
+    const video = document.createElement("video");
+    video.srcObject = remoteStream;
+    video.autoplay = true;
+    remoteScreen.innerHTML = "";
+    remoteScreen.appendChild(video);
   });
-}
 
-// Listen for remote control events
-function listenForRemoteControl() {
-  const controlRef = ref(rtdb, `sessions/${hostCode}/controlEvents`);
-  onValue(controlRef, (snapshot) => {
-    if (snapshot.exists()) {
-      const event = snapshot.val();
-      simulateEvent(event);
-    }
-  });
+  captureClientEvents(permissions);
 }
 
 // Simulate input events
@@ -246,10 +222,9 @@ function captureClientEvents(permissions) {
   }
 }
 
-// Send events to Firebase
+// Send events to host
 function sendControlEvent(event) {
-  const controlRef = ref(rtdb, `sessions/${clientCodeForControl}/controlEvents`);
-  set(controlRef, event);
+  Object.values(connections).forEach((conn) => conn.send({ type: "controlEvent", event }));
 }
 
 // Initialize the app
