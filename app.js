@@ -85,16 +85,23 @@ function showPermissionDialog(clientCode) {
       permissions.fileTransfer = true;
     }
 
-    permissionDialog.hide(); // Hide the modal when accepted
-    set(ref(rtdb, `sessions/${hostCode}/status`), { status: "accepted", permissions });
+    await set(ref(rtdb, `sessions/${hostCode}/status`), {
+      status: "accepted",
+      permissions
+    });
+
     console.log("Request accepted with permissions:", permissions);
+    permissionDialog.hide(); // Hide the modal when accepted
     startScreenSharing(); // Automatically start screen sharing
   };
 
   document.getElementById("reject-request").onclick = async () => {
-    permissionDialog.hide(); // Hide the modal when rejected
-    set(ref(rtdb, `sessions/${hostCode}/status`), "rejected");
+    await set(ref(rtdb, `sessions/${hostCode}/status`), {
+      status: "rejected"
+    });
+
     console.log("Request rejected.");
+    permissionDialog.hide(); // Hide the modal when rejected
   };
 }
 
@@ -198,7 +205,7 @@ function startReceivingStream(clientCode) {
 function listenForRemoteControl() {
   const controlRef = ref(rtdb, `sessions/${hostCode}/controlEvents`);
   onValue(controlRef, (snapshot) => {
-    if (snapshot.exists() && allowMouseControl.checked) {
+    if (snapshot.exists()) {
       const event = snapshot.val();
       simulateEvent(event); // Simulate the received event on the host's PC
     }
@@ -211,8 +218,10 @@ function simulateEvent(event) {
     console.log(`Simulating mousemove to (${event.x}, ${event.y})`);
   } else if (event.type === "click") {
     console.log(`Simulating click at (${event.x}, ${event.y})`);
-  } else if (event.type === "keypress") {
-    console.log(`Simulating keypress: ${event.key}`);
+  } else if (event.type === "keydown") {
+    console.log(`Simulating keydown: ${event.key}`);
+  } else if (event.type === "keyup") {
+    console.log(`Simulating keyup: ${event.key}`);
   }
 }
 
@@ -237,9 +246,16 @@ function captureClientEvents(permissions) {
   }
 
   if (permissions.keyboardControl) {
-    document.addEventListener("keypress", (event) => {
+    document.addEventListener("keydown", (event) => {
       sendControlEvent({
-        type: "keypress",
+        type: "keydown",
+        key: event.key,
+      });
+    });
+
+    document.addEventListener("keyup", (event) => {
+      sendControlEvent({
+        type: "keyup",
         key: event.key,
       });
     });
