@@ -27,7 +27,6 @@ let peer;
 let connections = {};
 
 // Function to generate a unique device code
-// Function to generate a unique device code
 async function generateUniqueCode() {
   let code;
   let isUnique = false;
@@ -55,7 +54,6 @@ async function initializeHostCode() {
   // Initialize PeerJS
   peer = new Peer(hostCode, { debug: 3 });
 
-  // Handle peer connections
   peer.on("open", () => {
     console.log("PeerJS initialized with code:", hostCode);
   });
@@ -69,7 +67,11 @@ async function initializeHostCode() {
   peer.on("call", (call) => {
     console.log("Incoming call from", call.peer);
     startScreenSharing().then((mediaStream) => {
-      call.answer(mediaStream);
+      if (mediaStream) {
+        call.answer(mediaStream);
+      } else {
+        console.error("No media stream to answer call");
+      }
     });
   });
 }
@@ -149,11 +151,10 @@ connectBtn.addEventListener("click", () => {
   }
 
   const conn = peer.connect(clientCode);
-
   conn.on("open", () => {
     console.log("Connected to host with code:", clientCode);
-    conn.send({ type: "permissionsRequest" });
 
+    conn.send({ type: "permissionsRequest" });
     conn.on("data", (data) => {
       if (data.type === "permissionsGranted") {
         console.log("Permissions granted:", data.permissions);
@@ -164,10 +165,6 @@ connectBtn.addEventListener("click", () => {
       }
     });
   });
-
-  conn.on("error", (err) => {
-    console.error("Connection error:", err);
-  });
 });
 
 // Start receiving stream
@@ -177,25 +174,33 @@ function startReceivingStream(clientCode, permissions) {
     return;
   }
 
-  // Wait for the peer connection to be established
-  const call = peer.call(clientCode, null); // Pass null as the media stream (data-only call)
+  // Only attempt to start a call if permissions allow screen sharing
+  if (permissions.screenShare) {
+    startScreenSharing().then((mediaStream) => {
+      if (mediaStream) {
+        const call = peer.call(clientCode, mediaStream);  // Now pass the mediaStream
 
-  call.on("stream", (remoteStream) => {
-    console.log("Receiving remote stream from client:", clientCode);
-    const video = document.createElement("video");
-    video.srcObject = remoteStream;
-    video.autoplay = true;
-    remoteScreen.innerHTML = ""; // Clear existing content
-    remoteScreen.appendChild(video);
-  });
+        call.on("stream", (remoteStream) => {
+          console.log("Receiving remote stream from client:", clientCode);
+          const video = document.createElement("video");
+          video.srcObject = remoteStream;
+          video.autoplay = true;
+          remoteScreen.innerHTML = ""; // Clear existing content
+          remoteScreen.appendChild(video);
+        });
 
-  call.on("error", (err) => {
-    console.error("Error during PeerJS call:", err);
-  });
+        call.on("error", (err) => {
+          console.error("Error during PeerJS call:", err);
+        });
 
-  call.on("close", () => {
-    console.log("Call with client closed.");
-  });
+        call.on("close", () => {
+          console.log("Call with client closed.");
+        });
+      }
+    });
+  } else {
+    console.error("Permissions do not allow screen sharing");
+  }
 
   captureClientEvents(permissions);
 }
