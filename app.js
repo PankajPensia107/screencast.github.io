@@ -167,7 +167,6 @@ connectBtn.addEventListener("click", () => {
   });
 });
 
-// Start receiving stream
 function startReceivingStream(clientCode, permissions) {
   if (!clientCode || !permissions) {
     console.error("Invalid clientCode or permissions:", clientCode, permissions);
@@ -176,23 +175,30 @@ function startReceivingStream(clientCode, permissions) {
 
   // Only attempt to start a call if permissions allow screen sharing
   if (permissions.screenShare) {
-    const call = peer.call(clientCode, null);
-    call.on("stream", (remoteStream) => {
-      console.log("Receiving remote stream from client:", clientCode);
-      const video = document.createElement("video");
-      video.srcObject = remoteStream;
-      video.autoplay = true;
-      remoteScreen.innerHTML = ""; // Clear existing content
-      remoteScreen.appendChild(video);
-    });
+    navigator.mediaDevices.getUserMedia({ video: false, audio: false })
+      .then((dummyStream) => {
+        const call = peer.call(clientCode, dummyStream);
 
-    call.on("error", (err) => {
-      console.error("Error during PeerJS call:", err);
-    });
+        call.on("stream", (remoteStream) => {
+          console.log("Receiving remote stream from client:", clientCode);
+          const video = document.createElement("video");
+          video.srcObject = remoteStream;
+          video.autoplay = true;
+          remoteScreen.innerHTML = ""; // Clear existing content
+          remoteScreen.appendChild(video);
+        });
 
-    call.on("close", () => {
-      console.log("Call with client closed.");
-    });
+        call.on("error", (err) => {
+          console.error("Error during PeerJS call:", err);
+        });
+
+        call.on("close", () => {
+          console.log("Call with client closed.");
+        });
+      })
+      .catch((err) => {
+        console.error("Error getting dummy stream for call:", err);
+      });
   } else {
     console.error("Permissions do not allow screen sharing");
   }
