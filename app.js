@@ -175,34 +175,29 @@ function startReceivingStream(clientCode, permissions) {
 
   // Only attempt to start a call if permissions allow screen sharing
   if (permissions.screenShare) {
-    navigator.mediaDevices.getUserMedia({ video: false, audio: false })
-      .then((dummyStream) => {
-        const call = peer.call(clientCode, dummyStream);
+    const call = peer.call(clientCode, undefined); // Call without sending a stream
+    call.on("stream", (remoteStream) => {
+      console.log("Receiving remote stream from client:", clientCode);
+      const video = document.createElement("video");
+      video.srcObject = remoteStream;
+      video.autoplay = true;
+      video.controls = false;
+      remoteScreen.innerHTML = ""; // Clear existing content
+      remoteScreen.appendChild(video);
+    });
 
-        call.on("stream", (remoteStream) => {
-          console.log("Receiving remote stream from client:", clientCode);
-          const video = document.createElement("video");
-          video.srcObject = remoteStream;
-          video.autoplay = true;
-          remoteScreen.innerHTML = ""; // Clear existing content
-          remoteScreen.appendChild(video);
-        });
+    call.on("error", (err) => {
+      console.error("Error during PeerJS call:", err);
+    });
 
-        call.on("error", (err) => {
-          console.error("Error during PeerJS call:", err);
-        });
-
-        call.on("close", () => {
-          console.log("Call with client closed.");
-        });
-      })
-      .catch((err) => {
-        console.error("Error getting dummy stream for call:", err);
-      });
+    call.on("close", () => {
+      console.log("Call with client closed.");
+    });
   } else {
     console.error("Permissions do not allow screen sharing");
   }
 
+  // Activate mouse and keyboard control if permissions allow
   captureClientEvents(permissions);
 }
 
