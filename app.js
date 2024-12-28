@@ -203,13 +203,25 @@ function startReceivingStream(clientCode, permissions) {
 // Simulate input events
 function simulateEvent(event) {
   if (event.type === "mousemove") {
-    console.log(`Simulating mousemove to (${event.x}, ${event.y})`);
-  } else if (event.type === "click") {
-    console.log(`Simulating click at (${event.x}, ${event.y})`);
-  } else if (event.type === "keydown") {
-    console.log(`Simulating keydown: ${event.key}`);
-  } else if (event.type === "keyup") {
-    console.log(`Simulating keyup: ${event.key}`);
+    const simulatedEvent = new MouseEvent("mousemove", {
+      clientX: event.x,
+      clientY: event.y,
+      bubbles: true,
+      cancelable: true,
+      view: window
+    });
+    document.dispatchEvent(simulatedEvent);
+    console.log(`Simulated mousemove to (${event.x}, ${event.y})`);
+  } else if (event.type === "mousedown" || event.type === "mouseup") {
+    const simulatedEvent = new MouseEvent(event.type, {
+      clientX: event.x,
+      clientY: event.y,
+      bubbles: true,
+      cancelable: true,
+      view: window
+    });
+    document.dispatchEvent(simulatedEvent);
+    console.log(`Simulated ${event.type} at (${event.x}, ${event.y})`);
   }
 }
 
@@ -220,15 +232,23 @@ function captureClientEvents(permissions) {
       sendControlEvent({
         type: "mousemove",
         x: event.clientX,
-        y: event.clientY,
+        y: event.clientY
       });
     });
 
-    document.addEventListener("click", (event) => {
+    document.addEventListener("mousedown", (event) => {
       sendControlEvent({
-        type: "click",
+        type: "mousedown",
         x: event.clientX,
-        y: event.clientY,
+        y: event.clientY
+      });
+    });
+
+    document.addEventListener("mouseup", (event) => {
+      sendControlEvent({
+        type: "mouseup",
+        x: event.clientX,
+        y: event.clientY
       });
     });
   }
@@ -237,14 +257,14 @@ function captureClientEvents(permissions) {
     document.addEventListener("keydown", (event) => {
       sendControlEvent({
         type: "keydown",
-        key: event.key,
+        key: event.key
       });
     });
 
     document.addEventListener("keyup", (event) => {
       sendControlEvent({
         type: "keyup",
-        key: event.key,
+        key: event.key
       });
     });
   }
