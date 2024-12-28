@@ -2,7 +2,7 @@
 import { db, rtdb } from "./firebase-config.js";
 import { doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.21.0/firebase-firestore.js";
 import { ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/9.21.0/firebase-database.js";
-import { Peer } from "https://esm.sh/peerjs@1.5.4?bundle-deps"
+import { Peer } from "https://esm.sh/peerjs@1.5.4?bundle-deps";
 
 // DOM Elements
 const hostCodeDisplay = document.getElementById("host-code-display");
@@ -176,27 +176,22 @@ function startReceivingStream(clientCode, permissions) {
 
   // Only attempt to start a call if permissions allow screen sharing
   if (permissions.screenShare) {
-    startScreenSharing().then((mediaStream) => {
-      if (mediaStream) {
-        const call = peer.call(clientCode, mediaStream);  // Now pass the mediaStream
+    const call = peer.call(clientCode, null);
+    call.on("stream", (remoteStream) => {
+      console.log("Receiving remote stream from client:", clientCode);
+      const video = document.createElement("video");
+      video.srcObject = remoteStream;
+      video.autoplay = true;
+      remoteScreen.innerHTML = ""; // Clear existing content
+      remoteScreen.appendChild(video);
+    });
 
-        call.on("stream", (remoteStream) => {
-          console.log("Receiving remote stream from client:", clientCode);
-          const video = document.createElement("video");
-          video.srcObject = remoteStream;
-          video.autoplay = true;
-          remoteScreen.innerHTML = ""; // Clear existing content
-          remoteScreen.appendChild(video);
-        });
+    call.on("error", (err) => {
+      console.error("Error during PeerJS call:", err);
+    });
 
-        call.on("error", (err) => {
-          console.error("Error during PeerJS call:", err);
-        });
-
-        call.on("close", () => {
-          console.log("Call with client closed.");
-        });
-      }
+    call.on("close", () => {
+      console.log("Call with client closed.");
     });
   } else {
     console.error("Permissions do not allow screen sharing");
